@@ -1,0 +1,12 @@
+// manifest.json
+{
+  "name": "Real",
+  "short_name": "Piggy",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#0b0c10",
+  "theme_color": "#ff4d8b",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }
+  ]
+}
