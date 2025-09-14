@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Piggy — Dark Aesthetic Savings Tracker</title>
+
+  <!-- PWA & iOS home screen support -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="manifest" href="manifest.json">
+
+  <style>
+    /* Dark aesthetic: minimal, glassy cards, neon accent */
+    :root{
+      --bg:#0b0c10; --card:#0f1116; --muted:#9aa0a6; --accent:#ff4d8b; --accent-2:#6ad3ff;
+      --glass: rgba(255,255,255,0.03);
+      --radius:16px;
+      font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;background:linear-gradient(180deg,#04050a 0%, #0b0c10 100%);color:#e6eef8}
+    .wrap{max-width:820px;margin:32px auto;padding:20px}
+
+    header{display:flex;gap:16px;align-items:center}
+    .logo{width:56px;height:56px;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--accent-2));display:flex;align-items:center;justify-content:center;font-weight:700;box-shadow:0 8px 30px rgba(0,0,0,0.6)}
+    h1{font-size:20px;margin:0}
+    p.lead{color:var(--muted);margin:6px 0 0;font-size:13px}
+
+    .grid{display:grid;grid-template-columns:1fr 320px;gap:18px;margin-top:20px}
+
+    .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:var(--radius);padding:18px;box-shadow:0 6px 30px rgba(2,6,23,0.6);backdrop-filter: blur(6px)}
+
+    /* Goals list */
+    .goal{display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;margin-bottom:12px;background:var(--glass)}
+    .goal strong{display:block}
+    .progress{height:8px;border-radius:999px;background:rgba(255,255,255,0.06);overflow:hidden}
+    .progress > i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--accent),var(--accent-2));}
+
+    .controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+    button, .btn{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:8px 12px;border-radius:12px;color:inherit;cursor:pointer}
+    .btn.primary{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#08101a;border:none}
+    .small{font-size:13px;padding:6px 8px}
+
+    label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+    input[type="text"], input[type="number"], select, input[type="time"]{width:100%;padding:10px;border-radius:12px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
+
+    .aside{position:sticky;top:20px}
+    .big-number{font-size:28px;font-weight:700}
+    .muted{color:var(--muted);font-size:13px}
+
+    footer{margin-top:18px;color:var(--muted);font-size:13px;text-align:center}
+
+    /* responsive */
+    @media(max-width:880px){.grid{grid-template-columns:1fr}.aside{position:static}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="logo">PB</div>
+      <div>
+        <h1>Piggy — Savings Tracker</h1>
+        <p class="lead">Add deposits, create goals, and watch progress. Dark aesthetic and works offline.</p>
+      </div>
+    </header>
+
+    <div class="grid">
+      <div>
+        <div class="card" id="mainCard">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div class="big-number" id="totalSaved">₹0</div>
+              <div class="muted">Total saved</div>
+            </div>
+            <div style="text-align:right">
+              <div class="muted">Target</div>
+              <div id="totalTarget" class="muted">₹0</div>
+            </div>
+          </div>
+
+          <hr style="border:none;height:1px;background:rgba(255,255,255,0.03);margin:14px 0">
+
+          <div id="goalsList"></div>
+
+          <div style="margin-top:12px">
+            <details open>
+              <summary style="cursor:pointer">Quick add deposit</summary>
+              <div style="margin-top:10px;display:grid;grid-template-columns:1fr 120px;gap:8px;align-items:end">
+                <div>
+                  <label>Amount (₹)</label>
+                  <input id="quickAmount" type="number" placeholder="e.g. 1000">
+                </div>
+                <div>
+                  <label>For</label>
+                  <select id="quickGoalSelect"></select>
+                </div>
+                <div style="grid-column:1/ -1;display:flex;gap:8px;margin-top:10px">
+                  <button class="btn primary" id="addDepositBtn">Add Deposit</button>
+                  <button class="btn" id="addCashMock">+10,000 (mock)</button>
+                </div>
+              </div>
+            </details>
+          </div>
+
+          <div class="controls" style="margin-top:12px">
+            <button class="btn" id="addGoalBtn">+ New Goal</button>
+            <button class="btn" id="exportBtn">Export JSON</button>
+            <button class="btn" id="importBtn">Import JSON</button>
+            <input type="file" id="importFile" accept="application/json" style="display:none">
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:14px">
+          <h3 style="margin:0 0 8px 0">Activity</h3>
+          <div id="activityLog" style="max-height:180px;overflow:auto;font-size:13px;color:var(--muted)"></div>
+        </div>
+      </div>
+
+      <aside class="aside">
+        <div class="card">
+          <h3 style="margin-top:0">Quick Summary</h3>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div class="muted">Nearest goal</div>
+              <div id="nearestGoal" style="font-weight:700">—</div>
+            </div>
+            <div style="text-align:right">
+              <div class="muted">Progress</div>
+              <div id="nearestProgress">0%</div>
+            </div>
+          </div>
+
+          <hr style="border:none;height:1px;background:rgba(255,255,255,0.03);margin:12px 0">
+
+          <label>Daily reminder time</label>
+          <input type="time" id="reminderTime" value="09:00">
+          <div style="margin-top:10px;display:flex;gap:8px">
+            <button class="btn small" id="enableNotif">Enable Notify</button>
+            <button class="btn small" id="toneTest">Test Reminder</button>
+          </div>
+
+          <div style="margin-top:14px">
+            <label>Add custom goal</label>
+            <input id="goalName" type="text" placeholder="Guitar — ₹30,000">
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <input id="goalAmount" type="number" placeholder="Amount">
+              <button class="btn primary small" id="saveGoal">Save</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h3 style="margin:0">Notes</h3>
+          <textarea id="notes" placeholder="Motivation notes..." style="width:100%;min-height:90px;margin-top:8px;padding:10px;border-radius:12px;background:transparent;border:1px solid rgba(255,255,255,0.04);color:inherit"></textarea>
+        </div>
+      </aside>
+    </div>
+
+    <footer>Tip: Add to iPhone Home Screen (Share → Add to Home Screen) for standalone experience.</footer>
+  </div>
+
+<script>
+/* ---------- App state & persistence ---------- */
+const LS_KEY = 'piggy_v1';
+let store = { goals: [], deposits: [], notes:'', reminderTime:'09:00', lastNotifDate:null };
+
+function save(){ localStorage.setItem(LS_KEY, JSON.stringify(store)); render(); }
+function load(){ const s = localStorage.getItem(LS_KEY); if(s) store = JSON.parse(s); render(); }
+
+/* ---------- Utilities ---------- */
+const fmt = n => '₹' + Number(n||0).toLocaleString('en-IN');
+function uid(){ return Math.random().toString(36).slice(2,9); }
+
+/* ---------- UI render ---------- */
+function render(){
+  // totals
+  const totalSaved = store.deposits.reduce((s,d)=>s+Number(d.amount),0);
+  const totalTarget = store.goals.reduce((s,g)=>s+Number(g.target),0);
+  document.getElementById('totalSaved').textContent = fmt(totalSaved);
+  document.getElementById('totalTarget').textContent = fmt(totalTarget);
+
+  // goals list
+  const goalsList = document.getElementById('goalsList'); goalsList.innerHTML='';
+  const quickSelect = document.getElementById('quickGoalSelect'); quickSelect.innerHTML='';
+  store.goals.forEach(g=>{
+    const saved = store.deposits.filter(d=>d.goalId===g.id).reduce((s,d)=>s+Number(d.amount),0);
+    const perc = Math.min(100, Math.round((saved/g.target)*100||0));
+    const div = document.createElement('div'); div.className='goal';
+    div.innerHTML = `<div style="flex:1">
+      <strong>${g.name}</strong>
+      <div class="muted">${fmt(saved)} / ${fmt(g.target)}</div>
+      <div class="progress" style="margin-top:8px"><i style="width:${perc}%"></i></div>
+    </div>
+    <div style="text-align:right;min-width:90px">
+      <div class="muted">${perc}%</div>
+      <div style="margin-top:8px;display:flex;gap:6px;justify-content:flex-end">
+        <button class="btn small" onclick="openAddToGoal('${g.id}')">+ Add</button>
+        <button class="btn small" onclick="deleteGoal('${g.id}')">Del</button>
+      </div>
+    </div>`;
+    goalsList.appendChild(div);
+
+    const opt = document.createElement('option'); opt.value = g.id; opt.textContent = g.name; quickSelect.appendChild(opt);
+  });
+
+  if(store.goals.length===0){ goalsList.innerHTML = '<div class="muted">No goals yet. Add your first goal on the right.</div>'; }
+
+  // activity
+  const log = document.getElementById('activityLog'); log.innerHTML='';
+  const items = [...store.deposits].reverse();
+  items.slice(0,60).forEach(d=>{
+    const g = store.goals.find(x=>x.id===d.goalId) || {name:'Unallocated'};
+    const el = document.createElement('div'); el.style.padding='6px 0'; el.innerHTML = `<div style="display:flex;justify-content:space-between"><div><strong>${fmt(d.amount)}</strong> <span class="muted">to ${g.name}</span></div><div class="muted">${new Date(d.ts).toLocaleString()}</div></div>`;
+    log.appendChild(el);
+  });
+
+  // quick things
+  const nearest = findNearestGoal();
+  document.getElementById('nearestGoal').textContent = nearest? nearest.name : '—';
+  document.getElementById('nearestProgress').textContent = nearest? Math.min(100,Math.round((nearest.saved/nearest.target)*100)) + '%' : '0%';
+
+  document.getElementById('quickAmount').value='';
+  document.getElementById('notes').value = store.notes || '';
+}
+
+/* ---------- core features ---------- */
+function addGoal(name,target){ store.goals.push({id:uid(),name, target: Number(target)}); save(); }
+function deleteGoal(id){ store.goals = store.goals.filter(g=>g.id!==id); // also keep deposits but mark orphaned
+  save(); }
+function addDeposit(amount,goalId=null){ store.deposits.push({id:uid(),amount: Number(amount),goalId,ts:Date.now()}); save(); }
+
+function findNearestGoal(){ if(store.goals.length===0) return null; let best=null; for(const g of store.goals){ const saved = store.deposits.filter(d=>d.goalId===g.id).reduce((s,d)=>s+Number(d.amount),0); const remaining = g.target - saved; if(remaining<=0) continue; if(!best || remaining < (best.target-best.saved)) best={...g,saved,target:g.target}; } return best; }
+
+/* ---------- UI interactions ---------- */
+document.getElementById('saveGoal').addEventListener('click',()=>{
+  const name = document.getElementById('goalName').value.trim(); const target = Number(document.getElementById('goalAmount').value);
+  if(!name || !target){ alert('Enter name and amount'); return; }
+  addGoal(name,target);
+  document.getElementById('goalName').value=''; document.getElementById('goalAmount').value='';
+});
+
+document.getElementById('addGoalBtn').addEventListener('click',()=>{
+  const name = prompt('Goal name (e.g. Guitar)'); if(!name) return; const target = prompt('Target amount in ₹ (e.g. 30000)'); if(!target) return; addGoal(name, Number(target));
+});
+
+document.getElementById('addDepositBtn').addEventListener('click',()=>{
+  const amt = Number(document.getElementById('quickAmount').value); const goalId = document.getElementById('quickGoalSelect').value || null;
+  if(!amt || amt<=0){ alert('Enter valid amount'); return; }
+  addDeposit(amt, goalId);
+});
+
+document.getElementById('addCashMock').addEventListener('click',()=>{ addDeposit(10000, null); });
+
+window.openAddToGoal = function(goalId){ const amt = prompt('Amount to add (₹)'); if(!amt) return; addDeposit(Number(amt), goalId); }
+window.deleteGoal = function(id){ if(confirm('Delete this goal? Deposits will remain as unallocated.')) deleteGoal(id); }
+
+/* notes */
+document.getElementById('notes').addEventListener('input',(e)=>{ store.notes = e.target.value; save(); });
+
+/* import/export */
+document.getElementById('exportBtn').addEventListener('click',()=>{
+  const blob = new Blob([JSON.stringify(store, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'piggy-export.json'; a.click(); URL.revokeObjectURL(url);
+});
+
+document.getElementById('importBtn').addEventListener('click',()=> document.getElementById('importFile').click());
+document.getElementById('importFile').addEventListener('change', async (e)=>{
+  const f = e.target.files[0]; if(!f) return; const txt = await f.text(); try{ store = JSON.parse(txt); save(); alert('Imported'); }catch(err){ alert('Invalid file'); }
+});
+
+/* reminder & notifications */
+async function requestNotif(){ if(!('Notification' in window)){ alert('Notifications not supported in this browser.'); return false; }
+  const perm = await Notification.requestPermission(); return perm === 'granted'; }
+
+let notifEnabled = false;
+document.getElementById('enableNotif').addEventListener('click', async ()=>{
+  const ok = await requestNotif(); notifEnabled = ok; alert(ok? 'Notifications enabled (works while app is open or in PWA mode sometimes)':'Permission denied');
+});
+
+document.getElementById('toneTest').addEventListener('click', ()=>{ showReminder('Keep going — small steps win!') });
+
+document.getElementById('reminderTime').addEventListener('change',(e)=>{ store.reminderTime = e.target.value; save(); });
+
+function showReminder(text){
+  if('Notification' in window && Notification.permission === 'granted'){
+    new Notification('Piggy Reminder', {body: text, silent:false});
+  }else{
+    // fallback
+    alert(text);
+  }
+}
+
+// schedule check every minute while app is running (works reliably while app is open)
+setInterval(()=>{
+  const rt = store.reminderTime || document.getElementById('reminderTime').value;
+  const now = new Date(); const hh = String(now.getHours()).padStart(2,'0'); const mm = String(now.getMinutes()).padStart(2,'0');
+  if(hh+':'+mm === rt){
+    // only show once per day
+    const today = new Date().toDateString();
+    if(store.lastNotifDate !== today){ store.lastNotifDate = today; save(); showReminder('Reminder: Work hard today — small deposits add up!'); }
+  }
+}, 1000 * 30);
+
+/* simple service worker registration for offline */
+if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{/*ignore*/}); }
+
+/* init */
+load();
+
+</script>
+</body>
+</html>
